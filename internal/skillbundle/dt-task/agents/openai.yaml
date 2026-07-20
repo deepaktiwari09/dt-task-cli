@@ -1,0 +1,4 @@
+interface:
+  display_name: "dt-task"
+  short_description: "Manage local PRDs and daily developer work"
+  default_prompt: "Use dt-task to inspect, plan, execute, and review my project work."

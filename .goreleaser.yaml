@@ -1,0 +1,34 @@
+version: 2
+project_name: dt-task
+builds:
+  - main: ./cmd/dt-task
+    binary: dt-task
+    flags: [-trimpath]
+    ldflags: [-s -w]
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+checksum:
+  name_template: checksums.txt
+sboms:
+  - artifacts: archive
+    documents:
+      - "${artifact}.sbom.json"
+brews:
+  - repository:
+      owner: deepaktiwari09
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/deepaktiwari09/dt-task-cli"
+    description: "Local-first PRD and daily work manager"
+    license: MIT
+    install: |
+      bin.install "dt-task"
+release:
+  prerelease: auto

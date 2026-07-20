@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -cover ./...
+      - run: go test -race ./...
+      - run: go test -bench=BenchmarkListTasks1000 -benchtime=1x -run '^$' ./internal/store
+      - run: go run ./cmd/dt-task completion bash >/dev/null
+      - run: go run ./cmd/dt-task completion zsh >/dev/null
+      - run: ./scripts/release-smoke.sh
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - run: go build ./cmd/dt-task
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
