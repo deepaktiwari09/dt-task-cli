@@ -15,8 +15,9 @@ checks pass.
 Remote publication requires an authenticated GitHub CLI account for
 `deepaktiwari09`, a public `deepaktiwari09/dt-task-cli` repository, and
 `HOMEBREW_TAP_TOKEN` access to `deepaktiwari09/homebrew-tap`. The release
-workflow publishes GitHub archives and the Homebrew formula; the CLI itself
-never makes runtime network requests.
+workflow publishes GitHub archives, checksums, SBOMs, and provenance. Cask
+generation stays non-blocking until the Homebrew tap and token are provisioned;
+the CLI itself never makes runtime network requests.
 
 Use `.env.example` as the non-secret variable template. Keep real `.env` files
 ignored and outside commits.

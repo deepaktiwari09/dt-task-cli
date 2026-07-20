@@ -19,6 +19,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
+      - name: Install Syft
+        id: syft
+        uses: anchore/sbom-action/download-syft@v0
+      - name: Add Syft to PATH
+        run: echo "$(dirname '${{ steps.syft.outputs.cmd }}')" >> "$GITHUB_PATH"
+      - name: Verify Syft
+        run: syft version
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser

@@ -19,16 +19,18 @@ sboms:
   - artifacts: archive
     documents:
       - "${artifact}.sbom.json"
-brews:
-  - repository:
+homebrew_casks:
+  - name: dt-task
+    binaries:
+      - dt-task
+    repository:
       owner: deepaktiwari09
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
     homepage: "https://github.com/deepaktiwari09/dt-task-cli"
     description: "Local-first PRD and daily work manager"
     license: MIT
-    install: |
-      bin.install "dt-task"
+    # The tap is not provisioned yet; keep cask generation non-blocking.
+    skip_upload: true
 release:
   prerelease: auto

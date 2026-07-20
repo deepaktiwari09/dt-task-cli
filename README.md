@@ -2,6 +2,20 @@
 
 Local-first PRD and daily work manager for developers.
 
+## Install
+
+Download the archive for your OS and CPU from the
+[v0.1.0 release](https://github.com/deepaktiwari09/dt-task-cli/releases/tag/v0.1.0),
+extract `dt-task` (or `dt-task.exe` on Windows), and place it on `PATH`.
+
+```sh
+tar -xzf dt-task_0.1.0_linux_arm64.tar.gz
+install -m 0755 dt-task ~/.local/bin/dt-task
+dt-task version
+```
+
+Windows users should extract the `.zip` archive and add its directory to `PATH`.
+
 ## Quick start
 
 ```sh
