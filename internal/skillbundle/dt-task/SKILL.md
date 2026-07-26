@@ -31,6 +31,23 @@ Use `dt-task` as the source of truth for task metadata, status, estimates, daily
 - Give blocked work a concrete reason.
 - Run `dt-task day end` to record outcomes; unfinished work carries to tomorrow automatically.
 
+## Parallel Codex work
+
+Use explicit Git worktrees when independent tasks should run in parallel:
+
+1. Run `dt-task worktree create <slug>` from the registered project checkout.
+2. Open a new Warp tab and run the printed `cd ... && codex` command.
+3. Use the printed `codex exec` command for bounded unattended work.
+4. Keep task status/timer updates explicit with `dt-task --project <alias>`.
+5. Run `dt-task worktree list` before cleanup.
+6. Remove only after reviewing changes: `dt-task worktree remove <slug>`; use `--force` only after recovery is no longer needed.
+
+Worktree commands never commit, merge, or change task status automatically. Do not switch branches inside an active worktree. Configure repository-specific behavior with `dt-task project config set`:
+
+- `worktree_default_branch`
+- `worktree_branch_prefix`
+- `worktree_setup_command`
+
 ## Safety
 
 - Read before mutating and report affected task IDs.

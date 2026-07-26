@@ -219,6 +219,8 @@ func ProjectTaskRoot(root string) string    { return filepath.Join(root, Project
 func ProjectArchiveRoot(root string) string { return filepath.Join(root, ProjectDir, ArchiveDir) }
 func ProjectTrashRoot(root string) string   { return filepath.Join(root, ProjectDir, TrashDir) }
 
+func EnsureGitignore(root string) error { return updateGitignore(root) }
+
 func rejectProjectSymlinks(root string) error {
 	for _, path := range []string{filepath.Join(root, ProjectDir), ProjectTaskRoot(root), ProjectArchiveRoot(root), ProjectTrashRoot(root), filepath.Join(root, ProjectDir, "config.yaml")} {
 		if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
@@ -279,6 +281,12 @@ func (s Store) LoadProjectConfig(root string) (model.ProjectConfig, error) {
 	if err := model.ValidatePriority(v.DefaultPriority); err != nil {
 		return v, err
 	}
+	if strings.TrimSpace(v.WorktreeBranchPrefix) == "" {
+		v.WorktreeBranchPrefix = "deepak/codex"
+	}
+	if strings.ContainsAny(v.WorktreeBranchPrefix, " \t\r\n") {
+		return v, fmt.Errorf("worktree_branch_prefix cannot contain whitespace")
+	}
 	return v, nil
 }
 
@@ -297,6 +305,12 @@ func (s Store) SaveProjectConfig(root string, v model.ProjectConfig) error {
 	}
 	if err := model.ValidatePriority(v.DefaultPriority); err != nil {
 		return err
+	}
+	if strings.TrimSpace(v.WorktreeBranchPrefix) == "" {
+		v.WorktreeBranchPrefix = "deepak/codex"
+	}
+	if strings.ContainsAny(v.WorktreeBranchPrefix, " \t\r\n") {
+		return fmt.Errorf("worktree_branch_prefix cannot contain whitespace")
 	}
 	return writeYAML(filepath.Join(root, ProjectDir, "config.yaml"), v, 0o600)
 }
@@ -808,25 +822,42 @@ func updateGitignore(root string) error {
 		return err
 	}
 	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
-	filtered := make([]string, 0, len(lines)+1)
-	canonicalSeen := false
+	filtered := make([]string, 0, len(lines)+2)
+	taskSeen := false
+	worktreeSeen := false
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "/.task/" || trimmed == ".task/" || trimmed == "/.task" || trimmed == ".task" {
-			if canonicalSeen {
+			if taskSeen {
 				continue
 			}
-			canonicalSeen = true
+			taskSeen = true
 			line = "/.task/"
+		}
+		if trimmed == "/.worktrees/" || trimmed == ".worktrees/" || trimmed == "/.worktrees" || trimmed == ".worktrees" {
+			if worktreeSeen {
+				continue
+			}
+			worktreeSeen = true
+			line = "/.worktrees/"
 		}
 		filtered = append(filtered, line)
 	}
 	lines = filtered
-	if !canonicalSeen {
+	for _, required := range []struct {
+		seen bool
+		line string
+	}{
+		{taskSeen, "/.task/"},
+		{worktreeSeen, "/.worktrees/"},
+	} {
+		if required.seen {
+			continue
+		}
 		if len(lines) > 0 && lines[len(lines)-1] != "" {
 			lines = append(lines, "")
 		}
-		lines = append(lines, "/.task/")
+		lines = append(lines, required.line)
 	}
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]

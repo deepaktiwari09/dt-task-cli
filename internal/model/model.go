@@ -84,10 +84,13 @@ type GlobalConfig struct {
 }
 
 type ProjectConfig struct {
-	SchemaVersion   int      `yaml:"schema_version" json:"schema_version"`
-	Alias           string   `yaml:"alias" json:"alias"`
-	DefaultPriority string   `yaml:"default_priority" json:"default_priority"`
-	DefaultTags     []string `yaml:"default_tags,omitempty" json:"default_tags,omitempty"`
+	SchemaVersion         int      `yaml:"schema_version" json:"schema_version"`
+	Alias                 string   `yaml:"alias" json:"alias"`
+	DefaultPriority       string   `yaml:"default_priority" json:"default_priority"`
+	DefaultTags           []string `yaml:"default_tags,omitempty" json:"default_tags,omitempty"`
+	WorktreeDefaultBranch string   `yaml:"worktree_default_branch,omitempty" json:"worktree_default_branch,omitempty"`
+	WorktreeBranchPrefix  string   `yaml:"worktree_branch_prefix,omitempty" json:"worktree_branch_prefix,omitempty"`
+	WorktreeSetupCommand  string   `yaml:"worktree_setup_command,omitempty" json:"worktree_setup_command,omitempty"`
 }
 
 type WorkSession struct {
@@ -140,7 +143,7 @@ func NewGlobalConfig() GlobalConfig {
 func NewGlobalState() GlobalState { return GlobalState{SchemaVersion: SchemaVersion} }
 
 func NewProjectConfig(alias string) ProjectConfig {
-	return ProjectConfig{SchemaVersion: SchemaVersion, Alias: alias, DefaultPriority: "P2"}
+	return ProjectConfig{SchemaVersion: SchemaVersion, Alias: alias, DefaultPriority: "P2", WorktreeBranchPrefix: "deepak/codex"}
 }
 
 func NewDayJournal(date string, capacity int) DayJournal {

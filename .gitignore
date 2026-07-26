@@ -1,3 +1,4 @@
 /.task/
+/.worktrees/
 .env
 /dist/

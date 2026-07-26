@@ -22,6 +22,7 @@ import (
 	"github.com/deepaktiwari09/dt-task-cli/internal/model"
 	"github.com/deepaktiwari09/dt-task-cli/internal/skillbundle"
 	"github.com/deepaktiwari09/dt-task-cli/internal/store"
+	"github.com/deepaktiwari09/dt-task-cli/internal/worktree"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -87,7 +88,7 @@ func New() (*cobra.Command, *App, error) {
 	root.PersistentFlags().BoolVar(&a.JSON, "json", false, "emit JSON")
 	root.PersistentFlags().BoolVar(&a.NoColor, "no-color", false, "disable color")
 	root.PersistentFlags().BoolVar(&a.Quiet, "quiet", false, "suppress informational output")
-	root.AddCommand(a.initCommand(), a.projectCommand(), a.captureCommand(), a.taskCommand(), a.dayCommand(), a.analyticsCommand(), a.doctorCommand(), a.configCommand(), a.skillCommand(), a.completionCommand(), a.versionCommand())
+	root.AddCommand(a.initCommand(), a.projectCommand(), a.captureCommand(), a.taskCommand(), a.worktreeCommand(), a.dayCommand(), a.analyticsCommand(), a.doctorCommand(), a.configCommand(), a.skillCommand(), a.completionCommand(), a.versionCommand())
 	return root, a, nil
 }
 
@@ -206,6 +207,22 @@ func (a *App) initCommand() *cobra.Command {
 		if err != nil {
 			return err
 		}
+		projectConfig, err := a.Store.LoadProjectConfig(project.Root)
+		if err != nil {
+			return err
+		}
+		configChanged := false
+		if projectConfig.WorktreeDefaultBranch == "" {
+			if branch, branchErr := worktree.CurrentBranch(project.Root); branchErr == nil {
+				projectConfig.WorktreeDefaultBranch = branch
+				configChanged = true
+			}
+		}
+		if configChanged {
+			if err := a.Store.SaveProjectConfig(project.Root, projectConfig); err != nil {
+				return err
+			}
+		}
 		a.Log.Info("project initialized", "operation", "init", "alias", project.Alias, "duration_ms", time.Since(started).Milliseconds(), "result", "success")
 		return a.output(map[string]any{"alias": project.Alias, "root": project.Root, "initialized": true}, fmt.Sprintf("initialized %s (%s)", project.Alias, project.Root))
 	}}
@@ -215,7 +232,58 @@ func (a *App) initCommand() *cobra.Command {
 
 func (a *App) projectCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "project", Short: "Manage registered projects"}
+	projectConfig := &cobra.Command{Use: "config", Short: "Manage project configuration"}
+	projectConfig.AddCommand(
+		&cobra.Command{Use: "get", Short: "Show project configuration", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+			if err := a.ensure(); err != nil {
+				return err
+			}
+			project, err := a.resolveProject()
+			if err != nil {
+				return err
+			}
+			config, err := a.Store.LoadProjectConfig(project.Root)
+			if err != nil {
+				return err
+			}
+			return a.output(config, formatProjectConfig(config))
+		}},
+		&cobra.Command{Use: "set <key> <value>", Short: "Set a project configuration value", Args: cobra.ExactArgs(2), RunE: func(cmd *cobra.Command, args []string) error {
+			if err := a.ensure(); err != nil {
+				return err
+			}
+			project, err := a.resolveProject()
+			if err != nil {
+				return err
+			}
+			config, err := a.Store.LoadProjectConfig(project.Root)
+			if err != nil {
+				return err
+			}
+			switch args[0] {
+			case "worktree_default_branch", "worktree-default-branch":
+				if strings.TrimSpace(args[1]) == "" || strings.ContainsAny(args[1], " \t\r\n") {
+					return Usage(fmt.Errorf("worktree_default_branch must be a non-empty branch or commit without whitespace"))
+				}
+				config.WorktreeDefaultBranch = strings.TrimSpace(args[1])
+			case "worktree_branch_prefix", "worktree-branch-prefix":
+				if strings.TrimSpace(args[1]) == "" || strings.ContainsAny(args[1], " \t\r\n") {
+					return Usage(fmt.Errorf("worktree_branch_prefix must be a non-empty prefix without whitespace"))
+				}
+				config.WorktreeBranchPrefix = strings.TrimSuffix(strings.TrimSpace(args[1]), "/")
+			case "worktree_setup_command", "worktree-setup-command":
+				config.WorktreeSetupCommand = args[1]
+			default:
+				return Usage(fmt.Errorf("unknown project config key %q", args[0]))
+			}
+			if err := a.Store.SaveProjectConfig(project.Root, config); err != nil {
+				return err
+			}
+			return a.output(config, "project configuration updated")
+		}},
+	)
 	cmd.AddCommand(
+		projectConfig,
 		&cobra.Command{Use: "list", Short: "List projects", RunE: func(cmd *cobra.Command, args []string) error {
 			if err := a.ensure(); err != nil {
 				return err
@@ -338,6 +406,119 @@ func (a *App) projectCommand() *cobra.Command {
 			})
 		}},
 	)
+	return cmd
+}
+
+func (a *App) worktreeCommand() *cobra.Command {
+	cmd := &cobra.Command{Use: "worktree", Short: "Manage project Git worktrees"}
+	var base, branch string
+	var noSetup, force bool
+
+	create := &cobra.Command{Use: "create <slug>", Short: "Create a project worktree", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		started := time.Now()
+		if err := a.ensure(); err != nil {
+			return err
+		}
+		project, err := a.resolveProject()
+		if err != nil {
+			return err
+		}
+		config, err := a.Store.LoadProjectConfig(project.Root)
+		if err != nil {
+			return err
+		}
+		selectedBase := strings.TrimSpace(base)
+		if selectedBase == "" {
+			selectedBase = config.WorktreeDefaultBranch
+		}
+		if selectedBase == "" {
+			return Usage(fmt.Errorf("worktree base is not configured; run dt-task project config set worktree_default_branch <branch> or pass --base"))
+		}
+		var result worktree.CreateResult
+		err = store.WithLock(filepath.Join(a.Store.GlobalRoot, "locks", "worktrees", project.Alias+".lock"), func() error {
+			if err := store.EnsureGitignore(project.Root); err != nil {
+				return err
+			}
+			var createErr error
+			result, createErr = worktree.Create(worktree.CreateOptions{
+				ProjectRoot:  project.Root,
+				Slug:         args[0],
+				Base:         selectedBase,
+				Branch:       branch,
+				BranchPrefix: config.WorktreeBranchPrefix,
+				SetupCommand: config.WorktreeSetupCommand,
+				RunSetup:     !noSetup,
+				Stdout:       a.Out,
+				Stderr:       a.Err,
+			})
+			return createErr
+		})
+		if err != nil {
+			a.Log.Error("worktree create failed", "operation", "worktree.create", "project", project.Alias, "duration_ms", time.Since(started).Milliseconds(), "result", "error")
+			return err
+		}
+		a.Log.Info("worktree created", "operation", "worktree.create", "project", project.Alias, "slug", result.Slug, "branch", result.Branch, "duration_ms", time.Since(started).Milliseconds(), "result", "success")
+		return a.output(worktreeCreateData(project.Alias, selectedBase, result), formatWorktreeCreate(project.Alias, selectedBase, result))
+	}}
+	create.Flags().StringVar(&base, "base", "", "base branch or commit override")
+	create.Flags().StringVar(&branch, "branch", "", "full branch name override")
+	create.Flags().BoolVar(&noSetup, "no-setup", false, "skip the configured setup command")
+
+	list := &cobra.Command{Use: "list", Short: "List project worktrees", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+		if err := a.ensure(); err != nil {
+			return err
+		}
+		project, err := a.resolveProject()
+		if err != nil {
+			return err
+		}
+		entries, err := worktree.List(project.Root)
+		if err != nil {
+			return err
+		}
+		return a.output(entries, formatWorktrees(entries))
+	}}
+
+	pathCommand := &cobra.Command{Use: "path <slug>", Short: "Print a worktree path", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if err := a.ensure(); err != nil {
+			return err
+		}
+		project, err := a.resolveProject()
+		if err != nil {
+			return err
+		}
+		path, err := worktree.Path(project.Root, args[0])
+		if err != nil {
+			return err
+		}
+		return a.output(map[string]any{"project": project.Alias, "slug": model.SafeSlug(args[0]), "path": path}, path)
+	}}
+
+	remove := &cobra.Command{Use: "remove <slug>", Short: "Remove a project worktree", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		started := time.Now()
+		if err := a.ensure(); err != nil {
+			return err
+		}
+		project, err := a.resolveProject()
+		if err != nil {
+			return err
+		}
+		var entry worktree.Entry
+		err = store.WithLock(filepath.Join(a.Store.GlobalRoot, "locks", "worktrees", project.Alias+".lock"), func() error {
+			var removeErr error
+			entry, removeErr = worktree.Remove(project.Root, args[0], force)
+			return removeErr
+		})
+		if err != nil {
+			a.Log.Error("worktree remove failed", "operation", "worktree.remove", "project", project.Alias, "duration_ms", time.Since(started).Milliseconds(), "result", "error")
+			return err
+		}
+		a.Log.Info("worktree removed", "operation", "worktree.remove", "project", project.Alias, "slug", entry.Slug, "branch", entry.Branch, "duration_ms", time.Since(started).Milliseconds(), "result", "success")
+		return a.output(map[string]any{"project": project.Alias, "slug": entry.Slug, "path": entry.Path, "branch": entry.Branch, "forced": force}, fmt.Sprintf("removed %s", entry.Path))
+	}}
+	remove.Flags().BoolVar(&force, "force", false, "remove even when the worktree is dirty")
+
+	cmd.AddCommand(create, list, pathCommand, remove)
 	return cmd
 }
 
@@ -2598,6 +2779,57 @@ func taskBody(problem, outcome, acceptance, scope, nonGoals, risks, qaNotes stri
 	sections += "\n## QA notes\n\n" + strings.TrimSpace(qaNotes) + "\n\n## Work log\n\n"
 	return sections
 }
+
+func formatProjectConfig(config model.ProjectConfig) string {
+	return fmt.Sprintf("alias: %s\ndefault_priority: %s\ndefault_tags: %s\nworktree_default_branch: %s\nworktree_branch_prefix: %s\nworktree_setup_command: %s", config.Alias, config.DefaultPriority, valueOr(strings.Join(config.DefaultTags, ","), "none"), valueOr(config.WorktreeDefaultBranch, "not configured"), valueOr(config.WorktreeBranchPrefix, "deepak/codex"), valueOr(config.WorktreeSetupCommand, "none"))
+}
+
+func worktreeCreateData(project, base string, result worktree.CreateResult) map[string]any {
+	return map[string]any{
+		"project":  project,
+		"base":     base,
+		"worktree": result,
+		"commands": map[string]string{
+			"interactive": fmt.Sprintf("cd %s && codex", shellQuote(result.Path)),
+			"exec":        fmt.Sprintf("cd %s && codex exec \"paste prompt here\"", shellQuote(result.Path)),
+		},
+	}
+}
+
+func formatWorktreeCreate(project, base string, result worktree.CreateResult) string {
+	setup := "not configured"
+	if result.SetupConfigured {
+		if result.SetupRan {
+			setup = "completed"
+		} else {
+			setup = "skipped"
+		}
+	}
+	return fmt.Sprintf("created %s/%s\npath: %s\nbranch: %s\nbase: %s\nsetup: %s\n\nWarp tab:\n  cd %s\n  codex\n\nUnattended:\n  cd %s && codex exec \"paste prompt here\"", project, result.Slug, result.Path, result.Branch, base, setup, shellQuote(result.Path), shellQuote(result.Path))
+}
+
+func formatWorktrees(entries []worktree.Entry) string {
+	if len(entries) == 0 {
+		return "no worktrees found"
+	}
+	lines := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		state := "clean"
+		if entry.Dirty {
+			state = "dirty"
+		}
+		if entry.Prunable {
+			state = "prunable"
+		}
+		lines = append(lines, fmt.Sprintf("%s\t%s\t%s\t%s", entry.Slug, entry.Branch, state, entry.Path))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
 func formatProjects(projects []model.Project) string {
 	if len(projects) == 0 {
 		return "no projects registered"

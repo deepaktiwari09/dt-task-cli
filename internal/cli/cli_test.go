@@ -2,7 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -451,4 +453,95 @@ func TestProjectRenameSynchronizesJournalReferences(t *testing.T) {
 	if err != nil || len(journals) != 1 || len(journals[0].Planned) != 1 || journals[0].Planned[0].Project != "new-name" {
 		t.Fatalf("journal refs = %#v, err=%v", journals, err)
 	}
+}
+
+func TestCLIWorktreeLifecycleAndProjectConfig(t *testing.T) {
+	global, project, home := filepath.Join(t.TempDir(), "global"), t.TempDir(), t.TempDir()
+	t.Setenv("DT_TASK_HOME", global)
+	t.Setenv("HOME", home)
+	initTestGitRepo(t, project)
+	old, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(old)
+	if err := os.Chdir(project); err != nil {
+		t.Fatal(err)
+	}
+	root, app, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	app.Out = &output
+	root.SetArgs([]string{"init", "--alias", "demo"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	root.SetArgs([]string{"project", "config", "get"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "worktree_default_branch: main") {
+		t.Fatalf("project config missing detected branch: %s", output.String())
+	}
+	root.SetArgs([]string{"project", "config", "set", "worktree_setup_command", "printf setup > setup.txt"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	root.SetArgs([]string{"worktree", "create", "fix-auth"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	worktreePath := filepath.Join(project, ".worktrees", "fix-auth")
+	if _, err := os.Stat(filepath.Join(worktreePath, "setup.txt")); err != nil {
+		t.Fatalf("setup output missing: %v", err)
+	}
+	if !strings.Contains(output.String(), "codex exec") || !strings.Contains(output.String(), worktreePath) {
+		t.Fatalf("Warp commands missing: %s", output.String())
+	}
+	output.Reset()
+	root.SetArgs([]string{"--json", "worktree", "list"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(output.Bytes(), &envelope); err != nil {
+		t.Fatalf("invalid worktree JSON: %v\n%s", err, output.String())
+	}
+	if !strings.Contains(output.String(), "fix-auth") {
+		t.Fatalf("worktree missing from JSON: %s", output.String())
+	}
+	root.SetArgs([]string{"worktree", "remove", "fix-auth", "--force"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(worktreePath); !os.IsNotExist(err) {
+		t.Fatalf("worktree remains after remove: %v", err)
+	}
+}
+
+func initTestGitRepo(t *testing.T, root string) {
+	t.Helper()
+	runTestGit(t, root, "init")
+	runTestGit(t, root, "checkout", "-b", "main")
+	runTestGit(t, root, "config", "user.email", "dt-task-test@example.invalid")
+	runTestGit(t, root, "config", "user.name", "dt-task test")
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, root, "add", "README.md")
+	runTestGit(t, root, "commit", "-m", "initial")
+}
+
+func runTestGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	data, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, data)
+	}
+	return string(data)
 }
