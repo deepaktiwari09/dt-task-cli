@@ -38,7 +38,7 @@ Open the [latest release](https://github.com/deepaktiwari09/dt-task-cli/releases
 macOS/Linux example:
 
 ~~~sh
-tar -xzf dt-task_0.2.0_darwin_arm64.tar.gz
+tar -xzf dt-task_0.3.0_darwin_arm64.tar.gz
 mkdir -p ~/.local/bin
 install -m 0755 dt-task ~/.local/bin/dt-task
 dt-task version
@@ -47,6 +47,10 @@ dt-task version
 Use `darwin_amd64` for Intel macOS, `linux_amd64` or `linux_arm64` for Linux, and the matching Windows `.zip` archive for Windows. Add `~/.local/bin` to `PATH` if it is not already there.
 
 Always verify the downloaded archive with `checksums.txt` when scripting an installation.
+
+Direct macOS archives are prebuilt native binaries and are not Apple-notarized.
+Use the Homebrew Formula below for a local source build without that Gatekeeper
+warning.
 
 ### Homebrew (source build)
 
@@ -213,7 +217,7 @@ Homebrew users:
 
 ~~~sh
 brew update
-brew upgrade --cask deepaktiwari09/tap/dt-task
+brew upgrade deepaktiwari09/tap/dt-task
 ~~~
 
 Archive users should download the newest archive from the [latest release](https://github.com/deepaktiwari09/dt-task-cli/releases/latest), replace the existing binary, and verify:
