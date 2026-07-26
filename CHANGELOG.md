@@ -3,6 +3,7 @@
 ## Unreleased — 2026-07-26
 
 - Add an independently installable `dt-task-worktree` skill for parallel Codex work in Warp tabs.
+- Keep direct GitHub release binaries and publish a source-built Homebrew Formula.
 
 ## 0.2.0 — 2026-07-26
 

@@ -4,7 +4,9 @@ builds:
   - main: ./cmd/dt-task
     binary: dt-task
     flags: [-trimpath]
-    ldflags: [-s -w]
+    ldflags:
+      - -s -w
+      - -X github.com/deepaktiwari09/dt-task-cli/internal/cli.version={{.Version}}
     env: [CGO_ENABLED=0]
     goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
@@ -19,16 +21,5 @@ sboms:
   - artifacts: archive
     documents:
       - "${artifact}.sbom.json"
-homebrew_casks:
-  - name: dt-task
-    binaries:
-      - dt-task
-    repository:
-      owner: deepaktiwari09
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    homepage: "https://github.com/deepaktiwari09/dt-task-cli"
-    description: "Local-first PRD and daily work manager"
-    license: MIT
 release:
   prerelease: auto

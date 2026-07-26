@@ -48,16 +48,24 @@ Use `darwin_amd64` for Intel macOS, `linux_amd64` or `linux_arm64` for Linux, an
 
 Always verify the downloaded archive with `checksums.txt` when scripting an installation.
 
-### Homebrew (macOS)
+### Homebrew (source build)
 
 Install from the public tap:
 
 ~~~sh
-brew install --cask deepaktiwari09/tap/dt-task
+brew install deepaktiwari09/tap/dt-task
 dt-task version
 ~~~
 
-Upgrade later with `brew upgrade --cask deepaktiwari09/tap/dt-task`.
+The Formula builds the Go source locally, so macOS does not need an Apple-notarized
+prebuilt binary. Upgrade later with `brew upgrade deepaktiwari09/tap/dt-task`.
+
+If upgrading from the old Cask, remove it once, then install the Formula:
+
+~~~sh
+brew uninstall --cask dt-task
+brew install deepaktiwari09/tap/dt-task
+~~~
 
 ### Build from source
 

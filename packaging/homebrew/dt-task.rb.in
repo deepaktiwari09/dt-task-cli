@@ -1,0 +1,18 @@
+class DtTask < Formula
+  desc "Local-first PRD and daily work manager"
+  homepage "https://github.com/deepaktiwari09/dt-task-cli"
+  url "https://github.com/deepaktiwari09/dt-task-cli/archive/refs/tags/v@VERSION@.tar.gz"
+  sha256 "@SOURCE_SHA256@"
+  license "MIT"
+
+  depends_on "go" => :build
+
+  def install
+    inreplace "internal/cli/cli.go", /(?:const|var) version = ".*"/, "var version = \"#{version}\""
+    system "go", "build", *std_go_args, "./cmd/dt-task"
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/dt-task version")
+  end
+end
