@@ -33,7 +33,41 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      - name: Checkout Homebrew tap
+        if: ${{ !contains(github.ref_name, '-') }}
+        uses: actions/checkout@v4
+        with:
+          repository: deepaktiwari09/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+      - name: Update Homebrew formula
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          source_url="https://github.com/deepaktiwari09/dt-task-cli/archive/refs/tags/${RELEASE_TAG}.tar.gz"
+          source_archive="${RUNNER_TEMP}/dt-task-${version}.tar.gz"
+          curl --fail --location --retry 5 --retry-delay 2 "$source_url" --output "$source_archive"
+          source_sha256="$(sha256sum "$source_archive" | awk '{print $1}')"
+
+          mkdir -p homebrew-tap/Formula
+          sed \
+            -e "s/@VERSION@/${version}/g" \
+            -e "s/@SOURCE_SHA256@/${source_sha256}/g" \
+            packaging/homebrew/dt-task.rb.in > homebrew-tap/Formula/dt-task.rb
+
+          if test -f homebrew-tap/Casks/dt-task.rb; then
+            git -C homebrew-tap rm Casks/dt-task.rb
+          fi
+          git -C homebrew-tap add Formula/dt-task.rb
+          git -C homebrew-tap config user.name "github-actions[bot]"
+          git -C homebrew-tap config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git -C homebrew-tap diff --cached --quiet; then
+            git -C homebrew-tap commit -m "Replace dt-task cask with source formula v${version}"
+            git -C homebrew-tap push origin HEAD:main
+          fi
       - uses: actions/attest-build-provenance@v2
         with:
           subject-path: 'dist/**/*'

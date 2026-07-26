@@ -27,7 +27,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const version = "0.2.0"
+var version = "dev"
 
 type App struct {
 	Store       store.Store
