@@ -38,7 +38,7 @@ Open the [latest release](https://github.com/deepaktiwari09/dt-task-cli/releases
 macOS/Linux example:
 
 ~~~sh
-tar -xzf dt-task_0.1.0_darwin_arm64.tar.gz
+tar -xzf dt-task_0.2.0_darwin_arm64.tar.gz
 mkdir -p ~/.local/bin
 install -m 0755 dt-task ~/.local/bin/dt-task
 dt-task version
@@ -50,15 +50,14 @@ Always verify the downloaded archive with `checksums.txt` when scripting an inst
 
 ### Homebrew (macOS)
 
-Once the project tap is published, install the cask with:
+Install from the public tap:
 
 ~~~sh
-brew tap deepaktiwari09/tap
-brew install --cask dt-task
+brew install --cask deepaktiwari09/tap/dt-task
 dt-task version
 ~~~
 
-The current v0.1.0 release does not publish the tap yet. Until then, use the release archive above.
+Upgrade later with `brew upgrade --cask deepaktiwari09/tap/dt-task`.
 
 ### Build from source
 
@@ -206,7 +205,7 @@ Homebrew users:
 
 ~~~sh
 brew update
-brew upgrade --cask dt-task
+brew upgrade --cask deepaktiwari09/tap/dt-task
 ~~~
 
 Archive users should download the newest archive from the [latest release](https://github.com/deepaktiwari09/dt-task-cli/releases/latest), replace the existing binary, and verify:
