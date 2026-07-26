@@ -25,4 +25,4 @@ cd "$tmp_dir/project"
 "$bin" doctor >/dev/null
 "$bin" skill >/dev/null
 "$bin" skill --status >/dev/null
-test "$("$bin" version)" = "dt-task 0.2.0"
+test "$("$bin" version)" = "dt-task dev"
