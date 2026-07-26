@@ -1,0 +1,4 @@
+interface:
+  display_name: "dt-task worktrees"
+  short_description: "Run parallel Codex tasks in isolated Git worktrees"
+  default_prompt: "Use dt-task worktree commands to create, operate, inspect, and safely clean up parallel Warp/Codex worktrees."

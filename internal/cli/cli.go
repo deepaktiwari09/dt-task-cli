@@ -43,6 +43,11 @@ type App struct {
 
 type UsageError struct{ Err error }
 
+type skillTarget struct {
+	Skill string `json:"skill"`
+	Path  string `json:"path"`
+}
+
 func (e UsageError) Error() string { return e.Err.Error() }
 func (e UsageError) Unwrap() error { return e.Err }
 func Usage(err error) error        { return UsageError{Err: err} }
@@ -2279,7 +2284,7 @@ func (a *App) configCommand() *cobra.Command {
 
 func (a *App) skillCommand() *cobra.Command {
 	var status bool
-	cmd := &cobra.Command{Use: "skill", Short: "Install or inspect the global dt-task agent skill", RunE: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "skill", Short: "Install or inspect the global dt-task agent skills", RunE: func(cmd *cobra.Command, args []string) error {
 		if err := skillbundle.Validate(); err != nil {
 			return err
 		}
@@ -2291,11 +2296,11 @@ func (a *App) skillCommand() *cobra.Command {
 			rows := []map[string]any{}
 			invalid := false
 			for _, target := range targets {
-				state := skillState(target)
+				state := skillState(target.Skill, target.Path)
 				if state["state"] != "current" {
 					invalid = true
 				}
-				rows = append(rows, map[string]any{"path": target, "state": state})
+				rows = append(rows, map[string]any{"skill": target.Skill, "path": target.Path, "state": state})
 			}
 			data := any(rows)
 			human := formatSkillStatus(rows)
@@ -2320,7 +2325,7 @@ func (a *App) skillCommand() *cobra.Command {
 	return cmd
 }
 
-func skillTargets() ([]string, error) {
+func skillTargets() ([]skillTarget, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -2341,15 +2346,17 @@ func skillTargets() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	first, err := resolveSkillTarget(filepath.Join(codex, "skills", "dt-task"))
-	if err != nil {
-		return nil, err
+	targets := []skillTarget{}
+	for _, skillName := range skillbundle.SkillNames() {
+		for _, root := range []string{filepath.Join(codex, "skills"), filepath.Join(home, ".agents", "skills")} {
+			target, err := resolveSkillTarget(filepath.Join(root, skillName))
+			if err != nil {
+				return nil, err
+			}
+			targets = append(targets, skillTarget{Skill: skillName, Path: target})
+		}
 	}
-	second, err := resolveSkillTarget(filepath.Join(home, ".agents", "skills", "dt-task"))
-	if err != nil {
-		return nil, err
-	}
-	return []string{first, second}, nil
+	return targets, nil
 }
 
 func hasPathTraversal(path string) bool {
@@ -2390,8 +2397,8 @@ func resolveSkillTarget(target string) (string, error) {
 	}
 }
 
-func skillState(target string) map[string]any {
-	files := []string{"SKILL.md", filepath.Join("agents", "openai.yaml")}
+func skillState(skillName, target string) map[string]any {
+	files := skillbundle.SkillFiles()
 	missing := []string{}
 	extras := []string{}
 	unsafe := false
@@ -2401,7 +2408,7 @@ func skillState(target string) map[string]any {
 	installed := map[string]string{}
 	bundled := map[string]string{}
 	for _, name := range files {
-		data, _ := fs.ReadFile(skillbundle.Files, filepath.Join("dt-task", name))
+		data, _ := fs.ReadFile(skillbundle.Files, skillbundle.EmbeddedPath(skillName, name))
 		sum := sha256.Sum256(data)
 		bundled[name] = hex.EncodeToString(sum[:])
 	}
@@ -2448,7 +2455,7 @@ func skillState(target string) map[string]any {
 	return map[string]any{"state": state, "files": installed, "bundled": bundled, "missing": missing, "extras": extras}
 }
 
-func (a *App) installSkill(targets []string) error {
+func (a *App) installSkill(targets []skillTarget) error {
 	lock := filepath.Join(a.Store.GlobalRoot, "locks", "skill.lock")
 	return store.WithLock(lock, func() error {
 		stamp := time.Now().UTC().Format("20060102T150405.000000000Z")
@@ -2470,45 +2477,45 @@ func (a *App) installSkill(targets []string) error {
 			}
 		}
 		for i, target := range targets {
-			if err := validateSkillTarget(target); err != nil {
+			if err := validateSkillTarget(target.Path); err != nil {
 				rollback()
 				return err
 			}
-			state := skillState(target)
+			state := skillState(target.Skill, target.Path)
 			if state["state"] == "current" {
 				continue
 			}
-			record := installRecord{target: target}
+			record := installRecord{target: target.Path}
 			records = append(records, record)
 			recordIndex := len(records) - 1
-			if _, err := os.Stat(target); err == nil {
+			if _, err := os.Stat(target.Path); err == nil {
 				backup := filepath.Join(backupRoot, strconv.Itoa(i))
 				if err := os.MkdirAll(filepath.Dir(backup), 0o700); err != nil {
 					rollback()
 					return err
 				}
-				if err := os.Rename(target, backup); err != nil {
+				if err := os.Rename(target.Path, backup); err != nil {
 					rollback()
-					return fmt.Errorf("backup skill %s: %w", target, err)
+					return fmt.Errorf("backup skill %s: %w", target.Path, err)
 				}
 				record.backup = backup
 				records[recordIndex] = record
 			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			if err := os.MkdirAll(filepath.Dir(target.Path), 0o700); err != nil {
 				rollback()
 				return err
 			}
-			stage, err := os.MkdirTemp(filepath.Dir(target), ".dt-task-skill-*")
+			stage, err := os.MkdirTemp(filepath.Dir(target.Path), ".dt-task-skill-*")
 			if err != nil {
 				rollback()
 				return err
 			}
-			if err := copyEmbeddedSkill(stage); err != nil {
+			if err := copyEmbeddedSkill(stage, target.Skill); err != nil {
 				_ = os.RemoveAll(stage)
 				rollback()
 				return err
 			}
-			if err := os.Rename(stage, target); err != nil {
+			if err := os.Rename(stage, target.Path); err != nil {
 				_ = os.RemoveAll(stage)
 				rollback()
 				return err
@@ -2516,7 +2523,11 @@ func (a *App) installSkill(targets []string) error {
 			record.installed = true
 			records[recordIndex] = record
 		}
-		if err := a.output(map[string]any{"targets": targets, "installed": true}, "dt-task skill installed globally"); err != nil {
+		paths := make([]string, 0, len(targets))
+		for _, target := range targets {
+			paths = append(paths, target.Path)
+		}
+		if err := a.output(map[string]any{"targets": paths, "skills": skillbundle.SkillNames(), "installed": true}, "dt-task skills installed globally"); err != nil {
 			return err
 		}
 		return nil
@@ -2536,15 +2547,15 @@ func validateSkillTarget(target string) error {
 	return nil
 }
 
-func copyEmbeddedSkill(dest string) error {
-	return fs.WalkDir(skillbundle.Files, "dt-task", func(path string, entry fs.DirEntry, err error) error {
+func copyEmbeddedSkill(dest, skillName string) error {
+	return fs.WalkDir(skillbundle.Files, skillName, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if path == "dt-task" {
+		if path == skillName {
 			return nil
 		}
-		rel := strings.TrimPrefix(path, "dt-task/")
+		rel := strings.TrimPrefix(path, skillName+"/")
 		target := filepath.Join(dest, rel)
 		if entry.IsDir() {
 			return os.MkdirAll(target, 0o755)
@@ -2871,7 +2882,7 @@ func formatSkillStatus(rows []map[string]any) string {
 	var lines []string
 	for _, row := range rows {
 		state, _ := row["state"].(map[string]any)
-		lines = append(lines, fmt.Sprintf("%s: %s", row["path"], state["state"]))
+		lines = append(lines, fmt.Sprintf("%s %s: %s", row["skill"], row["path"], state["state"]))
 	}
 	return strings.Join(lines, "\n")
 }
