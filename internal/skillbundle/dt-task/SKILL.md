@@ -1,6 +1,6 @@
 ---
 name: dt-task
-description: Operate the dt-task local PRD and daily planning workflow. Use when managing project tasks, writing or refining PRDs, preparing a workday, tracking focus sessions, reviewing carryover, or diagnosing dt-task state.
+description: Operate the dt-task local PRD, daily planning, and project worktree workflow. Use when managing project tasks, writing or refining PRDs, preparing a workday, tracking focus sessions, reviewing carryover, diagnosing dt-task state, or coordinating parallel agent work.
 ---
 
 # dt-task workflow
@@ -33,7 +33,7 @@ Use `dt-task` as the source of truth for task metadata, status, estimates, daily
 
 ## Parallel Codex work
 
-Use explicit Git worktrees when independent tasks should run in parallel:
+For the detailed isolated-development workflow, use the installed `dt-task-worktree` skill. The short flow is:
 
 1. Run `dt-task worktree create <slug>` from the registered project checkout.
 2. Open a new Warp tab and run the printed `cd ... && codex` command.

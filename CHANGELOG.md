@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — 2026-07-26
+
+- Add an independently installable `dt-task-worktree` skill for parallel Codex work in Warp tabs.
+
 ## 0.2.0 — 2026-07-26
 
 - Add project-configured Git worktree creation, listing, path lookup, and safe removal for parallel Codex work in Warp tabs.

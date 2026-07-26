@@ -66,6 +66,7 @@ Worktree creation is intentionally independent from task status and timers. Agen
 - Add a dependency cycle: command rejects it.
 - Run `doctor --fix` after a manual filename mismatch: repair is deterministic.
 - Run `skill` with missing, current, stale, and customized global targets: backups and checksums are correct.
+- Run `skill`: both `dt-task` and `dt-task-worktree` are installed in both supported agent locations.
 - Run `skill --status` before installation: it performs no writes and exits non-zero while either target is missing.
 - Run `day start` after an overnight timer: continue, adjust, or discard interactively; non-TTY output stays actionable.
 - Initialize a Git project: current branch becomes the worktree default and `.worktrees/` is ignored.

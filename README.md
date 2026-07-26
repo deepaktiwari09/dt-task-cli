@@ -181,11 +181,11 @@ dt-task --project my-project task list
 
 Use `--json` for scripts. JSON data goes to stdout; diagnostics go to stderr. Exit codes are `0` for success, `1` for state/I/O failures, and `2` for usage or validation errors.
 
-## Global agent skill
+## Global agent skills
 
-The bundled `dt-task` skill teaches Codex and other compatible agents to inspect remaining work, refine PRDs, update status/dependencies, run timers, plan days, and use JSON output safely.
+The bundled `dt-task` skill teaches Codex and other compatible agents to inspect remaining work, refine PRDs, update status/dependencies, run timers, plan days, and use JSON output safely. The separate `dt-task-worktree` skill teaches parallel development with isolated Git worktrees in Warp tabs.
 
-Install or update it globally:
+Install or update them globally:
 
 ~~~sh
 dt-task skill
@@ -197,7 +197,7 @@ Check both supported installation targets without changing files:
 dt-task skill --status
 ~~~
 
-The command installs matching copies under `CODEX_HOME/skills/dt-task` (or `~/.codex/skills/dt-task` when `CODEX_HOME` is unset) and `~/.agents/skills/dt-task`. Existing copies are backed up before replacement. No agent content or project paths are sent over the network.
+The command installs matching copies of both skills under `CODEX_HOME/skills/` (or `~/.codex/skills/` when `CODEX_HOME` is unset) and `~/.agents/skills/`. Existing copies are backed up before replacement. No agent content or project paths are sent over the network.
 
 ## Update dt-task
 

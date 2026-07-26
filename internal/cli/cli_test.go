@@ -76,8 +76,10 @@ func TestJSONEnvelopeGoldenShape(t *testing.T) {
 
 func TestSkillInstallAndStatus(t *testing.T) {
 	t.Setenv("DT_TASK_HOME", t.TempDir())
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("CODEX_HOME", filepath.Join(os.Getenv("HOME"), "codex"))
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	codexHome := filepath.Join(home, "codex")
+	t.Setenv("CODEX_HOME", codexHome)
 	root, app, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -94,6 +96,15 @@ func TestSkillInstallAndStatus(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "current") {
 		t.Fatalf("skill status missing current: %s", output.String())
+	}
+	for _, path := range []string{
+		filepath.Join(codexHome, "skills", "dt-task-worktree", "SKILL.md"),
+		filepath.Join(home, ".agents", "skills", "dt-task-worktree", "SKILL.md"),
+	} {
+		data, err := os.ReadFile(path)
+		if err != nil || !strings.Contains(string(data), "name: dt-task-worktree") {
+			t.Fatalf("worktree skill missing at %s: err=%v", path, err)
+		}
 	}
 }
 
