@@ -18,6 +18,7 @@ It keeps work readable and private:
 - planning today and carrying unfinished work into tomorrow;
 - recording focus time and estimate accuracy;
 - reviewing progress across multiple projects;
+- running independent Codex tasks in isolated Git worktrees;
 - giving coding agents a safe, consistent task workflow.
 
 Tasks use stable names such as:
@@ -76,7 +77,7 @@ Run this in any project:
 dt-task init --alias my-project
 ~~~
 
-`init` creates `.task/`, repairs missing task structure on reruns, creates or updates `.gitignore` with exactly `/.task/`, and registers the project locally. The `.task/` directory is intentionally ignored so each developer keeps their own task state after cloning the same repository.
+`init` creates `.task/`, repairs missing task structure on reruns, creates or updates `.gitignore` with canonical `/.task/` and `/.worktrees/` entries, and registers the project locally. The `.task/` and `.worktrees/` directories are intentionally ignored so each developer keeps local task/worktree state after cloning the same repository.
 
 Capture a quick idea:
 
@@ -131,6 +132,27 @@ dt-task analytics --days 7
 dt-task analytics --all-time
 ~~~
 
+## Parallel Codex worktrees
+
+Initialize a project to seed its current Git branch as the worktree base:
+
+~~~sh
+dt-task init --alias my-project
+dt-task project config set worktree_branch_prefix deepak/codex
+dt-task project config set worktree_setup_command "pnpm install"
+~~~
+
+Create a worktree. The command prints ready-to-run commands for a new Warp tab:
+
+~~~sh
+dt-task worktree create fix-login
+dt-task worktree list
+dt-task worktree path fix-login
+dt-task worktree remove fix-login
+~~~
+
+Each worktree lives under `.worktrees/` and receives a separate `deepak/codex/<slug>` branch. Worktree commands do not commit, merge, or change task status. Review changes before using `--force` during removal.
+
 ## Common task operations
 
 ~~~sh
@@ -139,6 +161,12 @@ dt-task task list --all-projects          # aggregate registered projects
 dt-task task show 1                       # read one PRD
 dt-task task edit 1                       # edit with $EDITOR and validate
 dt-task task depend add 1 2               # task 1 depends on task 2
+dt-task project config get                # project-specific defaults
+dt-task project config set <key> <value>
+dt-task worktree create <slug>            # isolated Git checkout
+dt-task worktree list
+dt-task worktree path <slug>
+dt-task worktree remove <slug>
 dt-task task archive 1                    # keep it searchable, hide from active work
 dt-task task delete 1                     # move it to project trash
 dt-task task restore 1                    # restore from trash
@@ -219,7 +247,8 @@ dt-task capture
 dt-task task create|list|show|edit|status|depend|start|stop|archive|delete|restore|purge
 dt-task day start|status|end
 dt-task analytics
-dt-task project list|rename|remove
+dt-task project list|rename|remove|config
+dt-task worktree create|list|path|remove
 dt-task doctor [--fix]
 dt-task config get|set|edit
 dt-task skill [--status]

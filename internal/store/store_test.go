@@ -29,7 +29,7 @@ func TestProjectInitIsIdempotentAndGitignoreIsCanonical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Count(string(data), "/.task/") != 1 {
+	if strings.Count(string(data), "/.task/") != 1 || strings.Count(string(data), "/.worktrees/") != 1 {
 		t.Fatalf("gitignore = %q", data)
 	}
 }
@@ -47,7 +47,7 @@ func TestGitignoreNormalizesTaskVariants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Count(string(data), "/.task/") != 1 || strings.Contains(string(data), ".task\n") {
+	if strings.Count(string(data), "/.task/") != 1 || strings.Count(string(data), "/.worktrees/") != 1 || strings.Contains(string(data), ".task\n") {
 		t.Fatalf("gitignore = %q", data)
 	}
 }

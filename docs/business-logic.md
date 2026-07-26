@@ -7,6 +7,8 @@
 - One task has many work sessions (1–N). A 90-minute task may have three focus sessions.
 - Tasks depend on many other tasks and can be depended on by many tasks (N–N). Example: API task `0002` blocks UI task `0003`.
 - A day journal plans many tasks, and a task can appear on many day journals (N–N).
+- One project has many isolated Git worktrees (1–N). Example: `web` owns `fix-login` and `add-cache` worktrees.
+- Each managed worktree has one checkout path and one branch (1–1). Example: `.worktrees/fix-login` uses `deepak/codex/fix-login`.
 
 Project task files are private and ignored by Git. Global registry and day journals are private to the local OS user.
 
@@ -44,6 +46,17 @@ A second developer cloning the same Git repository registers their own local
 alias. Git contains source code only: `.task/`, global journals, timers, and
 skill backups remain user-scoped and are never merged between developers.
 
+## Parallel Codex flow
+
+1. Alice creates PRD tasks `0010` and `0011` in the base checkout.
+2. She runs `dt-task worktree create fix-login` and opens the printed command in one Warp tab.
+3. She runs `dt-task worktree create add-cache` and opens its command in a second Warp tab.
+4. Each Codex session works on a separate branch and checkout without changing the base checkout.
+5. Alice reviews and commits each branch herself; dt-task never commits or merges automatically.
+6. After review, she removes only clean worktrees with `dt-task worktree remove <slug>`.
+
+Worktree creation is intentionally independent from task status and timers. Agents update task metadata explicitly with `--project` when needed.
+
 ## QA scenarios
 
 - Run `init` twice: exactly one `/.task/` line remains and existing files are unchanged.
@@ -55,3 +68,7 @@ skill backups remain user-scoped and are never merged between developers.
 - Run `skill` with missing, current, stale, and customized global targets: backups and checksums are correct.
 - Run `skill --status` before installation: it performs no writes and exits non-zero while either target is missing.
 - Run `day start` after an overnight timer: continue, adjust, or discard interactively; non-TTY output stays actionable.
+- Initialize a Git project: current branch becomes the worktree default and `.worktrees/` is ignored.
+- Create two worktrees: each gets an isolated checkout and `deepak/codex/<slug>` branch.
+- Configure a setup command: success completes creation; failure preserves the worktree for diagnosis.
+- Remove a dirty worktree without `--force`: command refuses and preserves changes.
