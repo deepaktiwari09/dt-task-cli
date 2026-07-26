@@ -1,4 +1,4 @@
-# v0.1.0 release-readiness task list
+# v0.2.0 release-readiness task list
 
 This checklist tracks the review findings for the local implementation. Items are checked only after code and tests verify them.
 

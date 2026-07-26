@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 2026-07-26
+## 0.2.0 — 2026-07-26
 
 - Add project-configured Git worktree creation, listing, path lookup, and safe removal for parallel Codex work in Warp tabs.
 - Add project worktree defaults, setup commands, JSON output, lifecycle tests, and bundled agent guidance.
